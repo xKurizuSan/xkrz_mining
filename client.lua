@@ -1,5 +1,6 @@
 local ESX = exports['es_extended']:getSharedObject()
 local ox_target = exports.ox_target
+ox_inventory = exports['ox_inventory']
 
 local IsAnimated = false
 local smeltStarted = false
@@ -8,6 +9,7 @@ local smeltStartedClump = false
 local smeltingInputOptionsClump = {}
 local materialInput = false
 local materialsOptions = {}
+local sellingInputOptions = {}
 
 CreateThread(function()
 	local modelHash = 'cs_x_rubweea'
@@ -30,22 +32,6 @@ CreateThread(function()
     SetEntityRotation(obj[3], 45.0, 50.0, 1.0, 0, 0)  
     SetEntityRotation(obj[4], 140.0, 1.0, 5.0, 0, 0)  
 end) 
-
-CreateThread(function()
-	local modelHash2 = 'gr_prop_gr_bench_04b'
-
-    if not HasModelLoaded(modelHash2) then 
-        RequestModel(modelHash2)
-        while not HasModelLoaded(modelHash2) do
-            Citizen.Wait(1)
-        end
-    end
-
-    local obj2 = CreateObject(modelHash2, vector3(1073.1964, -1988.7878, 29.9028), true)
-
-    SetEntityRotation(obj2, 0.0, 0.0, 59.0, 0, 0)
-
-end)
 
 exports['qb-target']:AddTargetModel('cs_x_rubweea',  {
     options = {
@@ -104,17 +90,33 @@ exports.qtarget:AddBoxZone("SmeltingClump", vector3(1086.27, -2003.67, 30.88), 4
 distance = 1.2
 })
 
-exports.qtarget:AddBoxZone("Bench", vector3(1073.11, -1988.79, 30.88), 2.2, 1.0, {
+exports.qtarget:AddBoxZone("Bench", vector3(1070.39, -2004.94, 32.08), 0.8, 0.8, {
     name="Bench",
-    heading=328,
+    heading=325,
     minZ=25,
     maxZ=27,
     }, {
    options = {
         {
             event = "xkrz_mining:bench",
-            icon = "fa-brands fa-free-code-camp",
+            icon = "fa-solid fa-gem",
             label = "Schleifen",
+        },
+    }, 
+distance = 2.2
+}) 
+
+exports.qtarget:AddBoxZone("Sell", vector3(797.65, -2988.69, 6.02), 0.6, 0.4, {
+    name="Sell",
+    heading=0,
+    minZ=25,
+    maxZ=27,
+    }, {
+   options = {
+        {
+            event = "xkrz_mining:sellMenu",
+            icon = "fa-solid fa-gem",
+            label = "Verkaufen",
         },
     }, 
 distance = 2.2
@@ -233,184 +235,319 @@ AddEventHandler('xkrz_mining:smashrock', function()
 end)
 
 for k, v in pairs(Config.SmeltingOptions) do
-    if v.smeltable then
-        table.insert(smeltingInputOptions, {value = k, label = v.label})
-    end
+    table.insert(smeltingInputOptions, {value = k, label = v.label})
 end 
 
 RegisterNetEvent('xkrz_mining:smelting')
 AddEventHandler('xkrz_mining:smelting', function()
     local smeltInput = lib.inputDialog('Material auswählen', {
         {type = 'select', label = 'Rohmaterial', description = 'Was willst du schmelzen?', icon = 'fa-solid fa-list', options = smeltingInputOptions},
-        {type = 'number', label = 'Menge', description = 'Wieviel willst du schmelzen?', icon = 'hashtag', min = 1}
+        {type = 'checkbox', label = 'Alles schmelzen?'},
+        {type = 'number', label = 'Anzahl', description = 'Wie viel möchtest du schmelzen?', icon = 'hashtag', min = 1}
     })
     if smeltInput == nil then 
         smeltStarted = false
     else
-        local hasItem = exports.ox_inventory:Search('count', smeltInput[1])
-        if hasItem >= smeltInput[2] then
-            local removeItem = nil
-            local giveItem = nil
-            local duration = nil
-            for k, v in pairs(Config.SmeltingOptions) do 
-                if k == smeltInput[1] then 
-                    removeItem = k
-                    giveItem = k
-                    duration = v.duration
+        if smeltInput[2] then 
+            local hasItem = exports.ox_inventory:Search('count', smeltInput[1])
+            if hasItem >= 1 then
+                local removeItem = nil
+                local giveItem = nil
+                local duration = nil
+                for k, v in pairs(Config.SmeltingOptions) do 
+                    if k == smeltInput[1] then 
+                        removeItem = k
+                        giveItem = k
+                        duration = v.duration
+                    end
                 end
-            end
-            if duration == nil then 
-                smeltStarted = false
-                return 
+                if duration == nil then 
+                    smeltStarted = false
+                    return 
+                else
+                    lib.progressCircle({
+                        duration = duration * hasItem,
+                        label = 'Schmelze ein...',
+                        useWhileDead = false,
+                        canCancel = false,
+                        position = "bottom",
+                        disable = {
+                            move = true,
+                            car = true,
+                            combat = true,
+                            mouse = false
+                        },
+                        anim = {dict = 'amb@world_human_stand_fire@male@idle_a', clip = 'idle_a'},
+                    })
+                    giveItem = giveItem:gsub("raw_", "")
+                    lib.callback('xkrz_mining:rewardSmeltItem', source, cb, removeItem, giveItem, hasItem)
+                    smeltStarted = false
+                end
             else
-                lib.progressCircle({
-                    duration = duration * smeltInput[2],
-                    label = 'Schmelze ein...',
-                    useWhileDead = false,
-                    canCancel = false,
-                    position = "bottom",
-                    disable = {
-                        move = true,
-                        car = true,
-                        combat = true,
-                        mouse = false
-                    },
-                    anim = {dict = 'amb@world_human_stand_fire@male@idle_a', clip = 'idle_a'},
+                lib.notify({
+                    title = 'Error',
+                    description = 'Du hast nicht genug Items.',
+                    position = 'top',
+                    type = 'error'
                 })
-                giveItem = giveItem:gsub("raw_", "")
-                lib.callback('xkrz_mining:rewardSmeltItem', source, cb, removeItem, giveItem, smeltInput[2])
                 smeltStarted = false
             end
         else
-            lib.notify({
-                title = 'Error',
-                description = 'Du hast nicht genug Items.',
-                position = 'top',
-                type = 'error'
-            })
-            smeltStarted = false
+            local hasItem = exports.ox_inventory:Search('count', smeltInput[1])
+            if hasItem >= 1 then
+                local removeItem = nil
+                local giveItem = nil
+                local duration = nil
+                for k, v in pairs(Config.SmeltingOptions) do 
+                    if k == smeltInput[1] then 
+                        removeItem = k
+                        giveItem = k
+                        duration = v.duration
+                    end
+                end
+                if duration == nil then 
+                    smeltStarted = false
+                    return 
+                else
+                    lib.progressCircle({
+                        duration = duration * smeltInput[3],
+                        label = 'Schmelze ein...',
+                        useWhileDead = false,
+                        canCancel = false,
+                        position = "bottom",
+                        disable = {
+                            move = true,
+                            car = true,
+                            combat = true,
+                            mouse = false
+                        },
+                        anim = {dict = 'amb@world_human_stand_fire@male@idle_a', clip = 'idle_a'},
+                    })
+                    giveItem = giveItem:gsub("raw_", "")
+                    lib.callback('xkrz_mining:rewardSmeltItem', source, cb, removeItem, giveItem, smeltInput[3])
+                    smeltStarted = false
+                end
+            else
+                lib.notify({
+                    title = 'Error',
+                    description = 'Du hast nicht genug Items.',
+                    position = 'top',
+                    type = 'error'
+                })
+                smeltStarted = false
+            end
         end
     end 
 end)
 
 for k, v in pairs(Config.SmeltingOptionsClump) do
-    if v.smeltable then
-        table.insert(smeltingInputOptionsClump, {value = k, label = v.label})
-    end
+    table.insert(smeltingInputOptionsClump, {value = k, label = v.label})
 end 
 
 RegisterNetEvent('xkrz_mining:smeltingclump')
 AddEventHandler('xkrz_mining:smeltingclump', function()
     local smeltInputClump = lib.inputDialog('Material auswählen', {
         {type = 'select', label = 'Rohmaterial', description = 'Was willst du schmelzen?', icon = 'fa-solid fa-list', options = smeltingInputOptionsClump},
-        {type = 'number', label = 'Menge', description = 'Wieviel willst du schmelzen?', icon = 'hashtag', min = 1}
+        {type = 'checkbox', label = 'Alles schmelzen?'},
+        {type = 'number', label = 'Anzahl', description = 'Wie viel möchtest du schmelzen?', icon = 'hashtag', min = 1}
     })
     if smeltInputClump == nil then 
         smeltStartedClump = false
     else
-        local hasItem = exports.ox_inventory:Search('count', smeltInputClump[1])
-        if hasItem >= smeltInputClump[2] then
-            local removeItem = nil
-            local giveItem = nil
-            local duration = nil
-            for k, v in pairs(Config.SmeltingOptionsClump) do 
-                if k == smeltInputClump[1] then 
-                    removeItem = k
-                    giveItem = k
-                    duration = v.duration
+        if smeltInputClump[2] then 
+            local hasItem = exports.ox_inventory:Search('count', smeltInputClump[1])
+            if hasItem >= 1 then
+                local removeItem = nil
+                local giveItem = nil
+                local duration = nil
+                for k, v in pairs(Config.SmeltingOptionsClump) do 
+                    if k == smeltInputClump[1] then 
+                        removeItem = k
+                        giveItem = k
+                        duration = v.duration
+                    end
                 end
-            end
-            if duration == nil then 
-                smeltStartedClump = false
-                return 
+                if duration == nil then 
+                    smeltStartedClump = false
+                    return 
+                else
+                    lib.progressCircle({
+                        duration = duration * hasItem,
+                        label = 'Schmelze ein...',
+                        useWhileDead = false,
+                        canCancel = false,
+                        position = "bottom",
+                        disable = {
+                            move = true,
+                            car = true,
+                            combat = true,
+                            mouse = false
+                        },
+                        anim = {dict = 'amb@world_human_stand_fire@male@idle_a', clip = 'idle_a'},
+                    })
+                    giveItem = giveItem:gsub("clump_", "")
+                    lib.callback('xkrz_mining:rewardSmeltItemClump', source, cb, removeItem, giveItem, hasItem)
+                    smeltStartedClump = false
+                end
             else
-                lib.progressCircle({
-                    duration = duration * smeltInputClump[2],
-                    label = 'Schmelze ein...',
-                    useWhileDead = false,
-                    canCancel = false,
-                    position = "bottom",
-                    disable = {
-                        move = true,
-                        car = true,
-                        combat = true,
-                        mouse = false
-                    },
-                    anim = {dict = 'amb@world_human_stand_fire@male@idle_a', clip = 'idle_a'},
+                lib.notify({
+                    title = 'Error',
+                    description = 'Du hast nicht genug Items.',
+                    position = 'top',
+                    type = 'error'
                 })
-                giveItem = giveItem:gsub("clump_", "")
-                lib.callback('xkrz_mining:rewardSmeltItemClump', source, cb, removeItem, giveItem, smeltInputClump[2])
                 smeltStartedClump = false
             end
-        else
-            lib.notify({
-                title = 'Error',
-                description = 'Du hast nicht genug Items.',
-                position = 'top',
-                type = 'error'
-            })
-            smeltStartedClump = false
+        else 
+            local hasItem = exports.ox_inventory:Search('count', smeltInputClump[1])
+            if hasItem >= 1 then
+                local removeItem = nil
+                local giveItem = nil
+                local duration = nil
+                for k, v in pairs(Config.SmeltingOptionsClump) do 
+                    if k == smeltInputClump[1] then 
+                        removeItem = k
+                        giveItem = k
+                        duration = v.duration
+                    end
+                end
+                if duration == nil then 
+                    smeltStartedClump = false
+                    return 
+                else
+                    lib.progressCircle({
+                        duration = duration * smeltInputClump[3],
+                        label = 'Schmelze ein...',
+                        useWhileDead = false,
+                        canCancel = false,
+                        position = "bottom",
+                        disable = {
+                            move = true,
+                            car = true,
+                            combat = true,
+                            mouse = false
+                        },
+                        anim = {dict = 'amb@world_human_stand_fire@male@idle_a', clip = 'idle_a'},
+                    })
+                    giveItem = giveItem:gsub("clump_", "")
+                    lib.callback('xkrz_mining:rewardSmeltItemClump', source, cb, removeItem, giveItem, smeltInputClump[3])
+                    smeltStartedClump = false  
+                end 
+            else
+                lib.notify({
+                    title = 'Error',
+                    description = 'Du hast nicht genug Items.',
+                    position = 'top',
+                    type = 'error'
+                })
+                smeltStartedClump = false
+            end
         end
-    end 
+    end
 end)
 
 for k, v in pairs(Config.materialsOptions) do
-    if v.smeltable then
-        table.insert(materialsOptions, {value = k, label = v.label})
-    end
+    table.insert(materialsOptions, {value = k, label = v.label})
 end 
 
 RegisterNetEvent('xkrz_mining:bench')
 AddEventHandler('xkrz_mining:bench', function()
     local materialInput = lib.inputDialog('Material auswählen', {
-        {type = 'select', label = 'Rohmaterial', description = 'Was willst du schmelzen?', icon = 'fa-solid fa-list', options = materialsOptions},
-        {type = 'number', label = 'Menge', description = 'Wieviel willst du schmelzen?', icon = 'hashtag', min = 1}
+        {type = 'select', label = 'Rohmaterial', description = 'Was möchtest du schleifen?', icon = 'fa-solid fa-list', options = materialsOptions},
+        {type = 'checkbox', label = 'Alles schleifen?'},
+        {type = 'number', label = 'Anzahl', description = 'Wie viel möchtest du schleifen?', icon = 'hashtag', min = 1}
     })
     if materialInput == nil then 
         materialInput = false
     else
-        local hasItem = exports.ox_inventory:Search('count', materialInput[1])
-        if hasItem >= materialInput[2] then
-            local removeItem = nil
-            local giveItem = nil
-            local duration = nil
-            for k, v in pairs(Config.materialsOptions) do 
-                if k == materialInput[1] then 
-                    removeItem = k
-                    giveItem = k
-                    duration = v.duration
+        if materialInput[2] then 
+            local hasItem2 = exports.ox_inventory:Search('count', materialInput[1])
+            if hasItem2 >= 1 then
+                local removeItem = nil
+                local giveItem = nil
+                local duration = nil
+                for k, v in pairs(Config.materialsOptions) do 
+                    if k == materialInput[1] then 
+                        removeItem = k
+                        giveItem = k
+                        duration = v.duration
+                    end
                 end
-            end
-            if duration == nil then 
-                materialInput = false
-                return 
+                if duration == nil then 
+                    materialInput = false
+                    return 
+                else
+                    lib.progressCircle({
+                        duration = duration * hasItem2,
+                        label = 'Schleifen...',
+                        useWhileDead = false,
+                        canCancel = false,
+                        position = "bottom",
+                        disable = {
+                            move = true,
+                            car = true,
+                            combat = true,
+                            mouse = false
+                        },
+                        anim = {dict = 'amb@world_human_stand_fire@male@idle_a', clip = 'idle_a'},
+                    })
+                    giveItem = giveItem:gsub("raw_", "")
+                    lib.callback('xkrz_mining:rewardMaterial', source, cb, removeItem, giveItem, hasItem2)
+                    materialInput = false
+                end
             else
-                lib.progressCircle({
-                    duration = duration * materialInput[2],
-                    label = 'Schmelze ein...',
-                    useWhileDead = false,
-                    canCancel = false,
-                    position = "bottom",
-                    disable = {
-                        move = true,
-                        car = true,
-                        combat = true,
-                        mouse = false
-                    },
-                    anim = {dict = 'amb@world_human_stand_fire@male@idle_a', clip = 'idle_a'},
+                lib.notify({
+                    title = 'Error',
+                    description = 'Du hast nicht genug Items.',
+                    position = 'top',
+                    type = 'error'
                 })
-                giveItem = giveItem:gsub("raw_", "")
-                lib.callback('xkrz_mining:rewardMaterial', source, cb, removeItem, giveItem, materialInput[2])
+                materialInput = false 
+            end 
+        else
+            local hasItem3 = exports.ox_inventory:Search('count', materialInput[1])
+            if hasItem3 >= 1 then
+                local removeItem = nil
+                local giveItem = nil
+                local duration = nil
+                for k, v in pairs(Config.materialsOptions) do 
+                    if k == materialInput[1] then 
+                        removeItem = k
+                        giveItem = k
+                        duration = v.duration
+                    end
+                end
+                if duration == nil then 
+                    materialInput = false
+                    return 
+                else
+                    lib.progressCircle({
+                        duration = duration * materialInput[3],
+                        label = 'Schleifen...',
+                        useWhileDead = false,
+                        canCancel = false,
+                        position = "bottom",
+                        disable = {
+                            move = true,
+                            car = true,
+                            combat = true,
+                            mouse = false
+                        },
+                        anim = {dict = 'amb@world_human_stand_fire@male@idle_a', clip = 'idle_a'},
+                        })
+                    giveItem = giveItem:gsub("raw_", "")
+                    lib.callback('xkrz_mining:rewardMaterial', source, cb, removeItem, giveItem, materialInput[3])
+                    materialInput = false 
+                end 
+            else
+                lib.notify({
+                    title = 'Error',
+                    description = 'Du hast nicht genug Items.',
+                    position = 'top',
+                    type = 'error'
+                })
                 materialInput = false
             end
-        else
-            lib.notify({
-                title = 'Error',
-                description = 'Du hast nicht genug Items.',
-                position = 'top',
-                type = 'error'
-            })
-            materialInput = false
         end
     end 
 end)
@@ -432,8 +569,9 @@ AddEventHandler('xkrz_mining:checkwater', function()
                 LoadAnimDict('anim@heists@narcotics@funding@gang_idle')
                 TaskPlayAnim(GetPed(), 'anim@heists@narcotics@funding@gang_idle', 'gang_chatting_idle01', 8.0, 8.0, -1, 33, 0, 0, 0, 0)
                 IsAnimated = true
+                local itemsAll = exports.ox_inventory:Search('count', 'mining_stone')
                 lib.progressCircle({
-                    duration = 5000,
+                    duration = 1000 * itemsAll / 2,
                     label = 'Wasche Stein..',
                     useWhileDead = false,
                     canCancel = false,
@@ -448,7 +586,7 @@ AddEventHandler('xkrz_mining:checkwater', function()
                 Wait(timer)
                 ClearPedTasks(GetPed())
                 IsAnimated = false
-	    		TriggerServerEvent('xkrz_mining:washedStone')
+	            lib.callback('xkrz_mining:washedStone', source, cb, itemsAll)
                 lib.notify({
                     title = 'Erfolg',
                     description = 'Du hast einen Stein gewaschen.',
@@ -471,30 +609,168 @@ AddEventHandler('xkrz_mining:checkwater', function()
                 type = 'error'
             }) 
 	    end
-    else
-        lib.notify({
-            title = 'Error',
-            description = 'Animation?',
-            position = 'top',
-            type = 'error'
-        })
     end
 end)
 
-local smeltBlip = AddBlipForCoord(1086.3845, -2003.6810, 30.9738)
-SetBlipSprite(smeltBlip, 648)
-SetBlipColour(smeltBlip, 17)
-SetBlipScale(smeltBlip, 0.80)
-SetBlipAsShortRange(smeltBlip, true)
-BeginTextCommandSetBlipName("STRING")
-AddTextComponentString('Schmelze')
-EndTextCommandSetBlipName(smeltBlip)
+Citizen.CreateThread(function()
+    if Config.Sell then  
+        local NPCPosition = {x = 797.6882, y = -2988.6956, z = 6.0209, rot = 89.5012} 
+        local pedModel = GetHashKey("csb_trafficwarden")   
+	    RequestModel(pedModel)
+	    while not HasModelLoaded(pedModel) do 
+	    	Wait(10)
+	    end
+	    local npc = CreatePed(4, pedModel,  NPCPosition.x, NPCPosition.y, NPCPosition.z - 1.0, NPCPosition.rot, false, false)
+	    FreezeEntityPosition(npc, true)
+	    SetEntityHeading(npc, NPCPosition.rot)
+	    SetEntityInvincible(npc, true)
+	    SetBlockingOfNonTemporaryEvents(npc, true)
+    end
+end)
 
-local miningBlip = AddBlipForCoord(2971.1665, 2844.5430, 46.5892)
-SetBlipSprite(miningBlip, 622)
-SetBlipColour(miningBlip, 64)
-SetBlipScale(miningBlip, 1.1)
-SetBlipAsShortRange(miningBlip, true)
-BeginTextCommandSetBlipName("STRING")
-AddTextComponentString('Mining')
-EndTextCommandSetBlipName(miningBlip)
+function ShowNotification(text)
+ 	SetNotificationTextEntry('STRING')
+    AddTextComponentString(text)
+ 	DrawNotification(false, true)
+end
+
+function showInfobar(msg)
+ 	CurrentActionMsg  = msg
+ 	SetTextComponentFormat('STRING')
+	AddTextComponentString(CurrentActionMsg)
+	DisplayHelpTextFromStringLabel(0, 0, 1, -1)
+end
+
+for k, v in pairs(Config.sellingInputOptions) do
+    table.insert(sellingInputOptions, {value = k, label = v.label})
+end 
+
+RegisterNetEvent('xkrz_mining:sellMenu')
+AddEventHandler('xkrz_mining:sellMenu', function()
+    if Config.Sell then     
+        local sellInput = lib.inputDialog('Material auswählen', {
+            {type = 'select', label = 'Material', description = 'Was willst du verkaufen?', icon = 'recycle', options = sellingInputOptions},
+            {type = 'checkbox', label = 'Alles verkaufen?'},
+            {type = 'number', label = 'Menge', description = 'Wieviel willst du verkaufen?', icon = 'hashtag', min = 1}
+        })
+        if sellInput == nil then 
+            sellInput = false
+        else
+            if sellInput[2] then 
+                local checkItem = sellInput[1]
+                local hasItem = exports.ox_inventory:Search('count', sellInput[1])
+                if hasItem >= 1 then
+                    local removeItem = nil
+                    local price = nil
+                    for k, v in pairs(Config.sellingInputOptions) do 
+                        if k == sellInput[1] then 
+                            removeItem = k
+                            price = v.price 
+                        end
+                    end
+                    price = price * hasItem
+                    local sellItem = checkItem
+                    if lib.progressCircle({
+                        duration = math.random(1500, 2500),
+                        label = 'verkaufe...',
+                        position = 'bottom',
+                        useWhileDead = false,
+                        canCancel = true,
+                        anim = {dict = 'mp_common', clip = 'givetake1_a'},
+                        disable = {move = true, car = true, combat = true}
+                    }) then
+                        lib.callback('xkrz_mining:sellItem', source, cb, removeItem, hasItem, price)
+                    end
+                else
+                    lib.notify({
+                        title = 'Error',
+                        description = 'Du hast nicht genug zum verkaufen.',
+                        position = 'top',
+                        type = 'error'
+                    })
+                end
+            else             
+                if sellInput == nil then 
+                    return 
+                else
+                    local checkItem = sellInput[1]
+                    local hasItem = exports.ox_inventory:Search('count', sellInput[1])
+                    if hasItem >= sellInput[3] then
+                        local removeItem = nil
+                        local price = nil
+                        for k, v in pairs(Config.sellingInputOptions) do 
+                            if k == sellInput[1] then 
+                                removeItem = k
+                                price = v.price 
+                            end
+                        end
+                        price = price * sellInput[3]
+                        local sellItem = checkItem
+                        if lib.progressCircle({
+                            duration = math.random(1500, 2500),
+                            label = 'Verkaufe...',
+                            position = 'bottom',
+                            useWhileDead = false,
+                            canCancel = true,
+                            anim = {dict = 'mp_common', clip = 'givetake1_a'},
+                            disable = {move = true, car = true, combat = true}
+                        }) then
+                            lib.callback('xkrz_mining:sellItem', source, cb, removeItem, sellInput[3], price)
+                        end
+                    else 
+                        lib.notify({
+                            title = 'Error',
+                            description = 'Du hast nicht genug zum verkaufen.',
+                            position = 'top',
+                            type = 'error'
+                        })
+                    end
+                end
+            end
+        end
+    end
+end)
+
+if Config.BlipSmelt then 
+    local smeltBlip = AddBlipForCoord(1086.3845, -2003.6810, 30.9738)
+    SetBlipSprite(smeltBlip, 648)
+    SetBlipColour(smeltBlip, 17)
+    SetBlipScale(smeltBlip, 0.80)
+    SetBlipAsShortRange(smeltBlip, true)
+    BeginTextCommandSetBlipName("STRING")
+    AddTextComponentString('Schmelze')
+    EndTextCommandSetBlipName(smeltBlip)
+end
+
+if Config.BlipMining then
+    local miningBlip = AddBlipForCoord(2971.1665, 2844.5430, 46.5892)
+    SetBlipSprite(miningBlip, 622)
+    SetBlipColour(miningBlip, 64)
+    SetBlipScale(miningBlip, 1.1)
+    SetBlipAsShortRange(miningBlip, true)
+    BeginTextCommandSetBlipName("STRING")
+    AddTextComponentString('Mining')
+    EndTextCommandSetBlipName(miningBlip)
+end 
+
+if Config.BlipGrind then
+    local grindBlip = AddBlipForCoord(1070.39, -2004.94, 32.08)
+    SetBlipSprite(grindBlip, 617)
+    SetBlipColour(grindBlip, 64)
+    SetBlipScale(grindBlip, 0.80)
+    SetBlipAsShortRange(grindBlip, true)
+    BeginTextCommandSetBlipName("STRING")
+    AddTextComponentString('Schleifen')
+    EndTextCommandSetBlipName(grindBlip)
+end  
+
+if Config.Sell and Config.BlipSell then
+    local sellBlip = AddBlipForCoord(797.6882, -2988.6956, 6.0209)
+    SetBlipSprite(sellBlip, 108)
+    SetBlipColour(sellBlip, 64)
+    SetBlipScale(sellBlip, 0.80)
+    SetBlipAsShortRange(sellBlip, true)
+    BeginTextCommandSetBlipName("STRING")
+    AddTextComponentString('Verkäufer')
+    EndTextCommandSetBlipName(sellBlip)
+end  

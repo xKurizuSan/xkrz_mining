@@ -3,7 +3,17 @@ Config = {}
 Config.PickAxeSkillDifficulty = {'easy', 'easy', 'easy'}
 Config.DrillSkillDifficulty = {'easy', 'easy', 'medium'}
 Config.SkillCheckKeys = {'e'}
-Config.RemoveDrillBit = false
+Config.RemoveDrillBit = true
+
+Config.DrillMinAmount = 3
+Config.DrillMaxAmount = 5
+
+Config.Sell = true
+
+Config.BlipSmelt = true
+Config.BlipMining = true
+Config.BlipGrind = true
+Config.BlipSell = true
 
 Config.Reward = {
     ItemList = {
@@ -20,27 +30,22 @@ Config.DrillReward = {
 Config.SmeltingOptions = {
     raw_copper = {
         label = 'Rohes Kupfer',
-        smeltable = true,
         duration = 1000
     },
     raw_iron = {
         label = 'Rohes Eisen',
-        smeltable = true,
         duration = 1000
     },
     raw_silver = {
         label = 'Rohes Silber',
-        smeltable = true,
         duration = 1000
     },
     raw_gold = {
         label = 'Rohes Gold',
-        smeltable = true,
         duration = 1000
     },
     raw_aluminum = {
         label = 'Rohes Aluminium',
-        smeltable = true,
         duration = 1000
     },
 }    
@@ -48,27 +53,22 @@ Config.SmeltingOptions = {
 Config.SmeltingOptionsClump = {
     clump_copper = {
         label = 'Klumpen Kupfer',
-        smeltable = true,
         duration = 1000
     },
     clump_iron = {
         label = 'Klumpen Eisen',
-        smeltable = true,
         duration = 1000
     },
     clump_silver = {
         label = 'Klumpen Silber',
-        smeltable = true,
         duration = 1000
     },
     clump_gold = {
         label = 'Klumpen Gold',
-        smeltable = true,
         duration = 1000
     },
     clump_aluminum = {
         label = 'Klumpen Aluminium',
-        smeltable = true,
         duration = 1000
     },
 }    
@@ -76,22 +76,70 @@ Config.SmeltingOptionsClump = {
 Config.materialsOptions = {
     raw_diamond = {
         label = 'Roher Diamant',
-        smeltable = true,
         duration = 1000
     },
     raw_emerald = {
         label = 'Roher Smaragd',
-        smeltable = true,
         duration = 1000
     },
     raw_saphir = {
         label = 'Roher Saphir',
-        smeltable = true,
         duration = 1000
     },
     raw_rubin = {
         label = 'Roher Rubin',
-        smeltable = true,
         duration = 1000
     },
 }  
+
+Config.sellingInputOptions = {
+    scrapmetal = {
+        label = 'Scrapmetal',
+        price = 50
+    },
+
+    iron = {
+        label = 'Eisen',
+        price = 50
+    },
+
+    copper = {
+        label = 'Kupfer',
+        price = 50
+    },
+
+    aluminum = {
+        label = 'Aluminium',
+        price = 50
+    },
+
+    gold = {
+        label = 'Gold',
+        price = 200
+    },
+
+    silver = {
+        label = 'Silber',
+        price = 200
+    },
+
+    rubin = {
+        label = 'Rubin',
+        price = 1000
+    },
+
+    saphir = {
+        label = 'Saphir',
+        price = 1000
+    },
+
+    emerald = {
+        label = 'Smaragd',
+        price = 1000
+    },
+
+    diamond = {
+        label = 'Diamant',
+        price = 1000
+    },
+}
