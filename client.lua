@@ -294,7 +294,7 @@ AddEventHandler('xkrz_mining:smelting', function()
             end
         else
             local hasItem = exports.ox_inventory:Search('count', smeltInput[1])
-            if hasItem >= 1 then
+            if hasItem >= smeltInput[3] then
                 local removeItem = nil
                 local giveItem = nil
                 local duration = nil
@@ -400,7 +400,7 @@ AddEventHandler('xkrz_mining:smeltingclump', function()
             end
         else 
             local hasItem = exports.ox_inventory:Search('count', smeltInputClump[1])
-            if hasItem >= 1 then
+            if hasItem >= smeltInputClump[3] then
                 local removeItem = nil
                 local giveItem = nil
                 local duration = nil
@@ -506,7 +506,8 @@ AddEventHandler('xkrz_mining:bench', function()
             end 
         else
             local hasItem3 = exports.ox_inventory:Search('count', materialInput[1])
-            if hasItem3 >= 1 then
+            if hasItem3 >= materialInput[3] then
+                print(hasItem3)
                 local removeItem = nil
                 local giveItem = nil
                 local duration = nil
@@ -521,6 +522,7 @@ AddEventHandler('xkrz_mining:bench', function()
                     materialInput = false
                     return 
                 else
+                    print('test')
                     lib.progressCircle({
                         duration = duration * materialInput[3],
                         label = 'Schleifen...',
