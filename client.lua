@@ -1,6 +1,6 @@
 local ESX = exports['es_extended']:getSharedObject()
 local ox_target = exports.ox_target
-ox_inventory = exports['ox_inventory']
+local ox_inventory = exports['ox_inventory']
 
 local IsAnimated = false
 local smeltStarted = false
@@ -27,6 +27,10 @@ CreateThread(function()
         CreateObject(modelHash, vector3(2971.1665, 2844.5430, 46.5892), true),
         CreateObject(modelHash, vector3(2971.6770, 2843.2639, 46.3458), true)
     }
+    FreezeEntityPosition(obj[1], true)
+    FreezeEntityPosition(obj[2], true)
+    FreezeEntityPosition(obj[3], true)
+    FreezeEntityPosition(obj[4], true)
     SetEntityRotation(obj[1], 45.0, 1.0, 1.0, 0, 0)
     SetEntityRotation(obj[2], 150.0, 70.0, 80.0, 0, 0)
     SetEntityRotation(obj[3], 45.0, 50.0, 1.0, 0, 0)  
@@ -41,12 +45,6 @@ exports['qb-target']:AddTargetModel('cs_x_rubweea',  {
         icon = "fa-solid fa-hammer",
         label = "Mining",
       },
-    },
-    distance = 1.5,
-})
-
-exports['qb-target']:AddTargetModel('cs_x_rubweea',  {
-    options = {
       {
         type = 'client',
         event = 'xkrz_mining:drillrock',
@@ -70,17 +68,6 @@ exports.qtarget:AddBoxZone("SmeltingRaw", vector3(1086.27, -2003.67, 30.88), 4.2
             icon = "fa-brands fa-free-code-camp",
             label = "Schmelzen Roh",
         },
-    }, 
-distance = 1.2
-})
-
-exports.qtarget:AddBoxZone("SmeltingClump", vector3(1086.27, -2003.67, 30.88), 4.2, 2.8, {
-    name="SmeltingClump",
-    heading=317,
-    minZ=25,
-    maxZ=27,
-    }, {
-   options = {
         {
             event = "xkrz_mining:smeltingclump",
             icon = "fa-brands fa-free-code-camp",
@@ -124,110 +111,132 @@ distance = 2.2
 
 RegisterNetEvent('xkrz_mining:drillrock')
 AddEventHandler('xkrz_mining:drillrock', function()
-    local hasItem = exports.ox_inventory:Search('count', 'mining_drill_bit')
-    if hasItem >= 1 then
-        local propModel = GetHashKey("hei_prop_heist_drill")
-        RequestAnimDict("anim@heists@fleeca_bank@drilling")
-            while not HasAnimDictLoaded("anim@heists@fleeca_bank@drilling") do
-                Citizen.Wait(0)
+    local PlayerWeight = exports.ox_inventory:GetPlayerWeight()
+    local MaxWeight = exports.ox_inventory:GetPlayerMaxWeight()
+    if PlayerWeight <= MaxWeight then
+        local hasItem = exports.ox_inventory:Search('count', 'mining_drill_bit')
+        if hasItem >= 1 then
+            local propModel = GetHashKey("hei_prop_heist_drill")
+            RequestAnimDict("anim@heists@fleeca_bank@drilling")
+                while not HasAnimDictLoaded("anim@heists@fleeca_bank@drilling") do
+                    Citizen.Wait(0)
+                end
+            RequestModel(propModel)
+                while not HasModelLoaded(propModel) do
+                    Citizen.Wait(0)
+                end
+            local ped = PlayerPedId()
+            local prop = CreateObject(propModel, 0, 0, 0, true, true, true)
+            AttachEntityToEntity(prop, ped, GetPedBoneIndex(ped, 57005), 0.16, 0.0, 0.0, 90.0, 270.0, 180.0, true, true, false, true, 1, true)
+            TaskPlayAnim(ped, "anim@heists@fleeca_bank@drilling", "drill_straight_start", 8.0, 1.0, -1, 1, 0, false, false, false)
+            local success = lib.skillCheck(Config.DrillSkillDifficulty, Config.SkillCheckKeys)
+	        if success then
+                lib.progressCircle({
+                duration = 5000,
+                label = '',
+                useWhileDead = false,
+                canCancel = false,
+                position = "bottom",
+                disable = {
+                    move = true,
+                    car = true,
+                    combat = true,
+                    mouse = false
+                },
+                })
+                DetachEntity(prop, true, true)
+                DeleteEntity(prop)
+                ClearPedTasks(ped)
+                lib.notify({
+                    title = 'Erfolg',
+                    description = 'Du warst erfolgreich.',
+                    position = 'top',
+                    type = 'success'
+                })
+                TriggerServerEvent('xkrz_mining:drillReward')
+            else 
+                DetachEntity(prop, true, true)
+                DeleteEntity(prop)
+                ClearPedTasks(ped)
+                lib.notify({
+                    title = 'Error',
+                    description = 'Dein Steinbohrer ist abgebrochen.',
+                    position = 'top',
+                    type = 'error'
+                })
+                if Config.RemoveDrillBit then
+                    TriggerServerEvent('xkrz_mining:removeDrillBit')
+                end
             end
-        RequestModel(propModel)
-            while not HasModelLoaded(propModel) do
-                Citizen.Wait(0)
-            end
-        local ped = PlayerPedId()
-        local prop = CreateObject(propModel, 0, 0, 0, true, true, true)
-        AttachEntityToEntity(prop, ped, GetPedBoneIndex(ped, 57005), 0.16, 0.0, 0.0, 90.0, 270.0, 180.0, true, true, false, true, 1, true)
-        TaskPlayAnim(ped, "anim@heists@fleeca_bank@drilling", "drill_straight_start", 8.0, 1.0, -1, 1, 0, false, false, false)
-        local success = lib.skillCheck(Config.DrillSkillDifficulty, Config.SkillCheckKeys)
-	    if success then
-            lib.progressCircle({
-            duration = 5000,
-            label = '',
-            useWhileDead = false,
-            canCancel = false,
-            position = "bottom",
-            disable = {
-                move = true,
-                car = true,
-                combat = true,
-                mouse = false
-            },
-            })
-            DetachEntity(prop, true, true)
-            DeleteEntity(prop)
-            ClearPedTasks(ped)
-            lib.notify({
-                title = 'Erfolg',
-                description = 'Du warst erfolgreich.',
-                position = 'top',
-                type = 'success'
-            })
-            TriggerServerEvent('xkrz_mining:drillReward')
         else 
-            DetachEntity(prop, true, true)
-            DeleteEntity(prop)
-            ClearPedTasks(ped)
             lib.notify({
                 title = 'Error',
-                description = 'Dein Steinbohrer ist abgebrochen.',
+                description = 'Du brauchst einen Steinbohrer',
                 position = 'top',
                 type = 'error'
             })
-            if Config.RemoveDrillBit then
-                TriggerServerEvent('xkrz_mining:removeDrillBit')
-            end
-        end
+        end 
     else 
-        lib.notify({
-            title = 'Error',
-            description = 'Du brauchst einen Steinbohrer',
-            position = 'top',
-            type = 'error'
-        })
-    end 
+    lib.notify({
+        title = 'Error',
+        description = 'Du kannst nicht mehr tragen!!',
+        position = 'top',
+        type = 'error'
+    })
+    end
 end)
 
 RegisterNetEvent('xkrz_mining:smashrock')
 AddEventHandler('xkrz_mining:smashrock', function()
-    local hasItem = exports.ox_inventory:Search('count', 'mining_pickaxe')
-    if hasItem >= 1 then
-        local success = lib.skillCheck(Config.PickAxeSkillDifficulty, Config.SkillCheckKeys)
-		if success then
-            lib.progressCircle({
-            duration = 5000,
-            label = '',
-            useWhileDead = false,
-            canCancel = false,
-            position = "bottom",
-            disable = {
-                move = true,
-                car = true,
-                combat = true,
-                mouse = false
-            },
-            anim = {dict = 'amb@world_human_hammering@male@base', clip = 'base'},
-            prop = {bone = 57005, model = 'prop_tool_pickaxe', pos = vec3(0.09, -0.53, -0.22), rot = vec3(252.0, 180.0, 0.0)}    
-            })
-            lib.notify({
-                title = 'Erfolg',
-                description = 'Du warst erfolgreich.',
-                position = 'top',
-                type = 'success'
-            })
-            lib.callback('xkrz_mining:Reward', source, cb, input)
+    local PlayerWeight = exports.ox_inventory:GetPlayerWeight()
+    local MaxWeight = exports.ox_inventory:GetPlayerMaxWeight()
+    if PlayerWeight <= MaxWeight then
+        local hasItem = exports.ox_inventory:Search('count', 'mining_pickaxe')
+        if hasItem >= 1 then
+            local success = lib.skillCheck(Config.PickAxeSkillDifficulty, Config.SkillCheckKeys)
+            if success then
+                lib.progressCircle({
+                duration = 5000,
+                label = '',
+                useWhileDead = false,
+                canCancel = false,
+                position = "bottom",
+                disable = {
+                    move = true,
+                    car = true,
+                    combat = true,
+                    mouse = false
+                },
+                anim = {dict = 'amb@world_human_hammering@male@base', clip = 'base'},
+                prop = {bone = 57005, model = 'prop_tool_pickaxe', pos = vec3(0.09, -0.53, -0.22), rot = vec3(252.0, 180.0, 0.0)}    
+                })
+                lib.notify({
+                    title = 'Erfolg',
+                    description = 'Du warst erfolgreich.',
+                    position = 'top',
+                    type = 'success'
+                })
+                lib.callback('xkrz_mining:Reward', source, cb, input)
+            else
+                lib.notify({
+                    title = 'Error',
+                    description = 'Versuch es nochmal.',
+                    position = 'top',
+                    type = 'error'
+                })
+            end
         else
             lib.notify({
                 title = 'Error',
-                description = 'Versuch es nochmal.',
+                description = 'Du hast keine Spitzhacke.',
                 position = 'top',
                 type = 'error'
             })
         end
-    else
+    else 
         lib.notify({
             title = 'Error',
-            description = 'Du hast keine Spitzhacke.',
+            description = 'Du kannst nicht mehr tragen!!',
             position = 'top',
             type = 'error'
         })
