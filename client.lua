@@ -2,7 +2,6 @@ local ESX = exports['es_extended']:getSharedObject()
 local ox_target = exports.ox_target
 local ox_inventory = exports['ox_inventory']
 
-local IsAnimated = false
 local smeltStarted = false
 local smeltingInputOptions = {}
 local smeltStartedClump = false
@@ -127,7 +126,7 @@ AddEventHandler('xkrz_mining:drillrock', function()
                 end
             local ped = PlayerPedId()
             local prop = CreateObject(propModel, 0, 0, 0, true, true, true)
-            AttachEntityToEntity(prop, ped, GetPedBoneIndex(ped, 57005), 0.16, 0.0, 0.0, 90.0, 270.0, 180.0, true, true, false, true, 1, true)
+            AttachEntityToEntity(prop, ped, PlayerPedIdBoneIndex(ped, 57005), 0.16, 0.0, 0.0, 90.0, 270.0, 180.0, true, true, false, true, 1, true)
             TaskPlayAnim(ped, "anim@heists@fleeca_bank@drilling", "drill_straight_start", 8.0, 1.0, -1, 1, 0, false, false, false)
             local success = lib.skillCheck(Config.DrillSkillDifficulty, Config.SkillCheckKeys)
 	        if success then
@@ -572,56 +571,83 @@ end
 
 function GetPed() return PlayerPedId() end
 
+local IsAnimated = false
+
 RegisterNetEvent('xkrz_mining:checkwater')
 AddEventHandler('xkrz_mining:checkwater', function()
     if not IsAnimated then
         if not IsPedInAnyVehicle(GetPed(), false) then
-	    	if IsEntityInWater(GetPed()) then
-                LoadAnimDict('anim@heists@narcotics@funding@gang_idle')
-                TaskPlayAnim(GetPed(), 'anim@heists@narcotics@funding@gang_idle', 'gang_chatting_idle01', 8.0, 8.0, -1, 33, 0, 0, 0, 0)
-                IsAnimated = true
+            if IsEntityInWater(GetPed()) then
                 local itemsAll = exports.ox_inventory:Search('count', 'mining_stone')
-                lib.progressCircle({
-                    duration = 1000 * itemsAll / 2,
-                    label = 'Wasche Stein..',
-                    useWhileDead = false,
-                    canCancel = false,
-                    position = "bottom",
-                    disable = {
-                        move = true,
-                        car = true,
-                        combat = true,
-                        mouse = false
-                    },  
+                
+                if itemsAll >= 10 then
+                    LoadAnimDict('anim@heists@narcotics@funding@gang_idle')
+                    TaskPlayAnim(GetPed(), 'anim@heists@narcotics@funding@gang_idle', 'gang_chatting_idle01', 8.0, 8.0, -1, 33, 0, 0, 0, 0)
+                    IsAnimated = true
+                    lib.progressCircle({
+                        duration = 1000 * itemsAll / 2,
+                        label = 'Wasche Stein..',
+                        useWhileDead = false,
+                        canCancel = false, -- Wenn "true" werden sofort alle Items gegeben bei Animationsabbruch. (Testmodus)
+                        position = "bottom",
+                        disable = {
+                            move = true,
+                            car = true,
+                            combat = true,
+                            mouse = false
+                        },
+                        onCancel = function()
+                            ClearPedTasks(GetPed())
+                            IsAnimated = false
+                            lib.notify({
+                                title = 'Abgebrochen',
+                                description = 'Das Waschen der Steine wurde abgebrochen.',
+                                position = 'top',
+                                type = 'error'
+                            })
+                        end
                     })
-                Wait(timer)
-                ClearPedTasks(GetPed())
-                IsAnimated = false
-	            lib.callback('xkrz_mining:washedStone', source, cb, itemsAll)
+                    Wait(100)
+                    if IsAnimated then
+                        ClearPedTasks(GetPed())
+                        IsAnimated = false
+                        lib.callback('xkrz_mining:washedStone', source, cb, itemsAll)
+                        lib.notify({
+                            title = 'Erfolg',
+                            description = 'Du hast deine Steine gewaschen.',
+                            position = 'top',
+                            type = 'success'
+                        })
+                    end
+                else
+                    lib.notify({
+                        title = 'Fehler',
+                        description = 'Du benötigst mindestens 10 Steine, um sie zu waschen.',
+                        position = 'top',
+                        type = 'error'
+                    })
+                end
+            else
                 lib.notify({
-                    title = 'Erfolg',
-                    description = 'Du hast einen Stein gewaschen.',
-                    position = 'top',
-                    type = 'success'
-                }) 
-	    	else
-                lib.notify({
-                    title = 'Error',
+                    title = 'Fehler',
                     description = 'Gehe näher ans Wasser',
                     position = 'top',
                     type = 'error'
-                }) 
-	    	end
+                })
+            end
         else
             lib.notify({
-                title = 'Error',
+                title = 'Fehler',
                 description = 'Du bist in einem Fahrzeug',
                 position = 'top',
                 type = 'error'
-            }) 
-	    end
+            })
+        end
     end
 end)
+
+
+-- THX to McKl1992 for the Stonewash Fix
 
 Citizen.CreateThread(function()
     if Config.Sell then  
