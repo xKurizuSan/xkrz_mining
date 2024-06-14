@@ -126,7 +126,7 @@ AddEventHandler('xkrz_mining:drillrock', function()
                 end
             local ped = PlayerPedId()
             local prop = CreateObject(propModel, 0, 0, 0, true, true, true)
-            AttachEntityToEntity(prop, ped, PlayerPedIdBoneIndex(ped, 57005), 0.16, 0.0, 0.0, 90.0, 270.0, 180.0, true, true, false, true, 1, true)
+            AttachEntityToEntity(prop, ped, GetPedBoneIndex(ped, 57005), 0.16, 0.0, 0.0, 90.0, 270.0, 180.0, true, true, false, true, 1, true)
             TaskPlayAnim(ped, "anim@heists@fleeca_bank@drilling", "drill_straight_start", 8.0, 1.0, -1, 1, 0, false, false, false)
             local success = lib.skillCheck(Config.DrillSkillDifficulty, Config.SkillCheckKeys)
 	        if success then
